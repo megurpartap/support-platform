@@ -1,0 +1,17 @@
+{
+  "name": "support-platform",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "admin",
+    "widget",
+    "shared"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:admin": "npm --workspace admin run dev",
+    "dev:widget": "npm --workspace widget run dev",
+    "build": "npm run build --workspaces"
+  }
+}

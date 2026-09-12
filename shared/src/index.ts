@@ -1,0 +1,1 @@
+export const SUPPORT_PLATFORM_VERSION = "1.0.0";

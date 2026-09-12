@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  SUPPORT_AGENT
+}
+
+enum ConversationPurpose {
+  BUY_SELL
+  AGENT
+}
+
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum MessageSenderType {
+  VISITOR
+  SUPPORT_AGENT
+}
+
+enum CallRequestStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum AuditAction {
+  USER_CREATED
+  USER_UPDATED
+  USER_PASSWORD_CHANGED
+  USER_DEACTIVATED
+  USER_ACTIVATED
+  CONVERSATION_ASSIGNED
+  CONVERSATION_CLOSED
+  SUPPORT_HOURS_UPDATED
+  SETTINGS_UPDATED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+
+  assignedConversations Conversation[] @relation("AssignedAgent")
+  messages              Message[]      @relation("AgentMessages")
+  auditLogs             AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Visitor {
+  id       String @id @default(uuid())
+  name     String
+  phone    String
+  email    String
+  cookieId String @unique
+
+  conversations Conversation[]
+  callRequests  CallRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone])
+  @@index([email])
+}
+
+model Conversation {
+  id              String              @id @default(uuid())
+  visitorId       String
+  assignedAgentId String?
+  purpose         ConversationPurpose
+  status          ConversationStatus  @default(OPEN)
+
+  source  String?
+  context Json?
+
+  visitor       Visitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  assignedAgent User?   @relation("AssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+
+  messages     Message[]
+  callRequests CallRequest[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+
+  @@index([visitorId])
+  @@index([assignedAgentId])
+  @@index([status])
+  @@index([purpose])
+  @@index([createdAt])
+}
+
+model Message {
+  id             String            @id @default(uuid())
+  conversationId String
+  senderType     MessageSenderType
+  senderId       String?
+  content        String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  agent        User?        @relation("AgentMessages", fields: [senderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model CallRequest {
+  id             String @id @default(uuid())
+  visitorId      String
+  conversationId String
+
+  requestedDate DateTime
+  duration      Int
+  status        CallRequestStatus @default(PENDING)
+
+  zoomMeetingId String?
+  zoomJoinUrl   String?
+  zoomStartUrl  String?
+
+  visitor      Visitor      @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([visitorId])
+  @@index([conversationId])
+  @@index([requestedDate])
+  @@index([status])
+}
+
+model BusinessSettings {
+  id             String  @id @default(uuid())
+  companyName    String
+  logoUrl        String?
+  chatColor      String?
+  welcomeMessage String?
+  timezone       String  @default("America/New_York")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SupportHours {
+  id        String  @id @default(uuid())
+  dayOfWeek Int
+  isEnabled Boolean @default(true)
+  startTime String
+  endTime   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek])
+}
+
+model AuditLog {
+  id      String      @id @default(uuid())
+  userId  String?
+  action  AuditAction
+  details Json?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
